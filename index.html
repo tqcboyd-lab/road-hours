@@ -274,9 +274,11 @@ sheet.addEventListener('click',e=>{
 document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!sheet.hidden)closeSheet()});
 
 function logText(){
-  const T=totals();const lines=[...S.drives].sort((a,b)=>a.start-b.start).map(d=>[new Date(d.start).toLocaleDateString('en-US'),fmtT(d.start),fmtT(d.end),dur(mins(d)),dur(nightMin(d)),d.sup||''].join(' | '));
-  return ['Road Hours: Texas 30-hour behind-the-wheel log','Date | Start | End | Total | Night | Supervisor',...lines,'',`Counted: ${(T.all/60).toFixed(1)} of 30 hours, ${(T.night/60).toFixed(1)} of 10 night hours (max 2 hours per day)`].join('\n');
+  const T=totals(),hr=m=>(m/60).toFixed(2);
+  const lines=[...S.drives].sort((a,b)=>a.start-b.start).map(d=>{const m=mins(d),n=nightMin(d);return [new Date(d.start).toLocaleDateString('en-US'),fmtT(d.start),hr(m-n),hr(n),d.sup||''].join(' | ')});
+  return ['Road Hours: Texas 30-hour behind-the-wheel log (for TDLR form DES150N)','Date | Time | Daytime hrs | Nighttime hrs | Supervising adult',...lines,'',`Counted: ${hr(T.all-T.night)} daytime + ${hr(T.night)} nighttime = ${hr(T.all)} of 30 hours (max 2 hours per day)`].join('\n');
 }
+
 
 /* ---------- main events ---------- */
 app.addEventListener('click',e=>{
