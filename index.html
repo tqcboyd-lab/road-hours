@@ -252,7 +252,7 @@ sheet.addEventListener('click',e=>{
   const s=e.target.closest('[data-s]');if(!s)return;
   if(s.dataset.s==='x')return closeSheet();
   if(s.dataset.s==='del'){const i=S.drives.findIndex(x=>x.id===editId);if(i>=0){lastDel=S.drives.splice(i,1)[0];closeSheet();save();say('Drive deleted','Undo',()=>{S.drives.push(lastDel);save()})}return}
-  if(s.dataset.s==='restore'){try{const v=$('#rin').value.trim().replace(/^ROADHOURS:/,'');const o=JSON.parse(decodeURIComponent(escape(atob(v))));if(!Array.isArray(o.drives))throw 0;S=Object.assign({},DEF,o);closeSheet();save();say('Backup restored: '+S.drives.length+' drives')}catch(err){say('That code didn\'t work. Copy the whole thing and try again.')}return}
+  if(s.dataset.s==='restore'){if(!s.dataset.sure){s.dataset.sure='1';s.textContent='Yes, replace my log';s.style.background='var(--red)';s.style.borderColor='var(--red)';return}try{const v=$('#rin').value.trim().replace(/^ROADHOURS:/,'');const o=JSON.parse(decodeURIComponent(escape(atob(v))));if(!Array.isArray(o.drives))throw 0;S=Object.assign({},DEF,o);closeSheet();save();say('Backup restored: '+S.drives.length+' drives')}catch(err){say('That code didn\'t work. Copy the whole thing and try again.')}return}
   if(s.dataset.s==='copy'){const ta=$('#cp');ta.select();try{navigator.clipboard.writeText(ta.value).then(()=>say('Log copied'),()=>{})}catch(err){}return}
   const r=readSheet();if(!r)return;
   if(editId){Object.assign(S.drives.find(x=>x.id===editId),r)}else{S.drives.push(Object.assign({id:'d'+Date.now().toString(36)},r))}
@@ -284,7 +284,7 @@ app.addEventListener('click',e=>{
     try{navigator.clipboard.writeText(code).then(()=>say('Backup copied. Paste it in a note or text.'),show)}catch(err){show()}
   }
   else if(a==='restore'){
-    sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-labelledby="rst"><h3 id="rst">Restore a backup</h3><p class="mute">Paste the backup code. This replaces the log on this phone.</p><textarea id="rin" placeholder="ROADHOURS:..."></textarea><div class="pacts"><span></span><button class="btn" data-s="x">Cancel</button><button class="btn solid" data-s="restore">Restore</button></div></div>`;sheet.hidden=false;
+    sheet.innerHTML=`<div class="panel" role="dialog" aria-modal="true" aria-labelledby="rst"><h3 id="rst">Restore a backup</h3><p class="mute">Paste the backup code. This replaces the ${S.drives.length} drive${S.drives.length===1?'':'s'} on this phone with the ones in the backup.</p><textarea id="rin" placeholder="ROADHOURS:..."></textarea><div class="pacts"><span></span><button class="btn" data-s="x">Cancel</button><button class="btn solid" data-s="restore">Restore</button></div></div>`;sheet.hidden=false;
   }
   else if(a==='copy'){
     const txt=logText();
