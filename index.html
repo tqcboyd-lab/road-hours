@@ -113,7 +113,8 @@ textarea{width:100%;min-height:200px;font:13px/1.4 ui-monospace,monospace;paddin
 <div id="app"></div>
 <script id="js">{
 const LAT=33.236,LNG=-96.801; /* Prosper, TX — used for sunset/sunrise */
-const GOAL=1800,NIGHT_GOAL=600,DAY_CAP=120;
+const GOAL=1800,NIGHT_GOAL=600,HALF=18e5;
+const CAP=()=>S.cap===60?60:120;
 const $=s=>document.querySelector(s);
 const esc=s=>String(s??'').replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const MOON='<svg class="moon" viewBox="0 0 16 16" aria-hidden="true"><path d="M10.5 1.5a6.5 6.5 0 1 0 4 11.6A7 7 0 0 1 10.5 1.5z"/></svg>';
@@ -152,12 +153,12 @@ function sun(y,mo,da){
   return {rise:t(Jt-w/360),set:t(Jt+w/360)};
 }
 const sunFor=t=>{const d=new Date(t);return sun(d.getFullYear(),d.getMonth(),d.getDate())};
-function daylight(s,e){let tot=0;const d0=new Date(s);for(let k=-1;k<=1;k++){const d=new Date(d0.getFullYear(),d0.getMonth(),d0.getDate()+k);const x=sun(d.getFullYear(),d.getMonth(),d.getDate());tot+=Math.max(0,Math.min(e,x.set)-Math.max(s,x.rise))}return tot}
+function daylight(s,e){let tot=0;const d0=new Date(s);for(let k=-1;k<=1;k++){const d=new Date(d0.getFullYear(),d0.getMonth(),d0.getDate()+k);const x=sun(d.getFullYear(),d.getMonth(),d.getDate());tot+=Math.max(0,Math.min(e,x.set+HALF)-Math.max(s,x.rise-HALF))}return tot}
 const autoNight=(s,e)=>Math.max(0,Math.round((e-s-daylight(s,e))/6e4));
 const nightMin=d=>Math.min(mins(d),d.night!=null?d.night:autoNight(d.start,d.end));
 function totals(){
   const by={};for(const d of S.drives){const k=dkey(d.start),b=by[k]||(by[k]={m:0,n:0});b.m+=mins(d);b.n+=nightMin(d)}
-  let all=0,night=0;for(const k in by){const b=by[k],c=Math.min(b.m,DAY_CAP);all+=c;night+=Math.min(b.n,c)}
+  let all=0,night=0;for(const k in by){const b=by[k],c=Math.min(b.m,CAP());all+=c;night+=Math.min(b.n,c)}
   return {all,night,by};
 }
 const liveMin=()=>S.active?Math.floor((Date.now()-S.active.start)/6e4):0;
@@ -172,7 +173,7 @@ try{navigator.storage&&navigator.storage.persist&&navigator.storage.persist()}ca
 function meter(cls,val,goal,label,left){const p=Math.min(100,val/goal*100);return `<div class="m ${cls}"><div class="row1"><span class="big">${val}</span><span class="of">${label}</span><span class="left">${left}</span></div><div class="road" role="progressbar" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${Math.round(p)}"><i style="width:${p}%"></i></div></div>`}
 function render(){
   const T=totals(),now=Date.now(),tk=dkey(now),todayM=((T.by[tk]||{}).m||0)+liveMin();
-  const sn=sunFor(now),isNight=now<sn.rise||now>sn.set;
+  const sn=sunFor(now),isNight=now<sn.rise-HALF||now>sn.set+HALF;
   const allH=(T.all/60).toFixed(1),nightH=(T.night/60).toFixed(1);
   const toGo=Math.max(0,GOAL-T.all),nToGo=Math.max(0,NIGHT_GOAL-T.night);
   const sups=S.sups.map(s=>`<button class="chip" data-a="sup" data-v="${esc(s)}" aria-pressed="${(S.active?S.active.sup:S.lastSup)===s}">${esc(s)}</button>`).join('');
@@ -180,8 +181,8 @@ function render(){
   if(S.permit){const p=new Date(S.permit+'T12:00');const e=new Date(p);e.setMonth(e.getMonth()+6);const days=Math.ceil((e-now)/864e5);
     permit=`<div class="permit">Learner permit since ${p.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}. Six-month mark: <b>${e.toLocaleDateString('en-US',{month:'short',day:'numeric',year:'numeric'})}</b>${days>0?` (${days} days to go)`:' (reached)'}.</div>`}
   const list=[...S.drives].sort((a,b)=>b.start-a.start);
-  const rows=list.map(d=>{const m=mins(d),n=nightMin(d),over=T.by[dkey(d.start)].m>DAY_CAP;
-    return `<li><button class="rw" data-a="edit" data-id="${esc(d.id)}"><span class="d">${fmtDay(d.start)}</span><span class="dur">${dur(m)}${n?`<span class="nt">${MOON} ${dur(n)} night</span>`:''}</span><span class="t">${fmtT(d.start)} – ${fmtT(d.end)} · with ${esc(d.sup||'—')}</span>${over?'<span class="warn">Over 2 hours that day, so only 2 hours count</span>':''}</button></li>`}).join('');
+  const rows=list.map(d=>{const m=mins(d),n=nightMin(d),over=T.by[dkey(d.start)].m>CAP();
+    return `<li><button class="rw" data-a="edit" data-id="${esc(d.id)}"><span class="d">${fmtDay(d.start)}</span><span class="dur">${dur(m)}${n?`<span class="nt">${MOON} ${dur(n)} night</span>`:''}</span><span class="t">${fmtT(d.start)} – ${fmtT(d.end)} · with ${esc(d.sup||'—')}</span>${over?`<span class="warn">Over ${dur(CAP())} that day, so only ${dur(CAP())} counts</span>`:''}</button></li>`}).join('');
   app.innerHTML=`
 <header class="top band"><div class="wrap">
   <svg width="44" height="44" viewBox="0 0 44 44" aria-hidden="true"><rect x="7" y="7" width="30" height="30" rx="4" transform="rotate(45 22 22)" fill="#ffd23f" stroke="#121726" stroke-width="2.5"/><path d="M17 31c0-6 10-6 10-12v-5m-4 4 4-4 4 4" fill="none" stroke="#121726" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
@@ -196,19 +197,19 @@ function render(){
     <button class="go${S.active?' on':''}" data-a="go" aria-label="${S.active?'Stop drive':'Start drive'}">
       ${S.active?`<span class="gs">Driving</span><span class="clock" id="clock">${clock()}</span><span class="gl" style="font-size:22px">Stop</span>`:`<span class="gl">Start</span><span class="gs">drive</span>`}
     </button>
-    <p class="hint">${isNight?`${MOON} It's night now, so this counts toward night hours.`:`Sunset today ${fmtT(sn.set)}. Driving after that counts as night.`}</p>
+    <p class="hint">${isNight?`${MOON} It's night now, so this counts toward night hours.`:`Night starts at ${fmtT(sn.set+HALF)} today (30 min after sunset).`}</p>
   </div>
   <div class="meters">
     ${meter('',allH,30,'of 30 hours',toGo?dur(toGo)+' to go':'Done')}
     ${meter('night',nightH,10,'of 10 night hours',nToGo?dur(nToGo)+' to go':'Done')}
-    <div class="m small${todayM>DAY_CAP?' over':''}"><div class="row1"><span class="big" id="todayM">${dur(todayM)}</span><span class="of">today, of the 2-hour daily max</span></div><div class="road"><i id="todayBar" style="width:${Math.min(100,todayM/DAY_CAP*100)}%"></i></div></div>
+    <div class="m small${todayM>CAP()?' over':''}"><div class="row1"><span class="big" id="todayM">${dur(todayM)}</span><span class="of">today, of the ${CAP()===60?'1-hour':'2-hour'} daily max</span></div><div class="road"><i id="todayBar" style="width:${Math.min(100,todayM/CAP()*100)}%"></i></div></div>
     ${permit}
   </div>
 </div></section>
 <section class="band"><div class="wrap">
   <div class="loghead"><h2>Drives</h2><div class="acts"><button class="btn" data-a="add">Add a missed drive</button><a class="btn" id="sms" href="#">Text the log</a><button class="btn" data-a="copy">Copy log</button></div></div>
   ${rows?`<ul class="list">${rows}</ul>`:'<div class="empty">No drives yet. Next time you get behind the wheel, tap <b>Start</b>.</div>'}
-  <p class="fine">Texas requires 30 hours of supervised practice, at least 10 at night, with a licensed driver who is 21 or older and has at least a year of driving experience. Practice is limited to 2 hours a day, so time past 2 hours in one day isn't counted here. Night is figured from sunset to sunrise in Prosper, TX; type a number when editing a drive to override it. Tap any drive to fix it. Use Text the log to send it to a parent, and copy it onto TDLR form DES150N for DPS.</p>
+  <p class="fine">Texas requires 30 hours of supervised practice, at least 10 at night, with a licensed driver who is 21 or older and has at least a year of driving experience. Only ${dur(CAP())} a day counts (set the daily limit in Setup to match her course), so extra time that day isn't counted here. Night is figured from 30 minutes after sunset to 30 minutes before sunrise in Prosper, TX; type a number when editing a drive to override it. Tap any drive to fix it. Use Text the log to send it to a parent, and copy it onto TDLR form DES150N for DPS.</p>
 </div></section>
 <section class="band setup"><div class="wrap">
   <h2>Setup</h2>
@@ -217,6 +218,9 @@ function render(){
     <div><div style="font-weight:600;font-size:15px">Who rides along</div>
       <div class="sups">${S.sups.map(s=>`<span class="tag">${esc(s)}<button data-a="rmsup" data-v="${esc(s)}" aria-label="Remove ${esc(s)}">×</button></span>`).join('')}</div>
       <form class="addsup" id="addsup"><input id="newsup" placeholder="Add a name" maxlength="30" aria-label="Add a name"><button class="btn">Add</button></form></div>
+    <div><div style="font-weight:600;font-size:15px">Daily limit that counts</div>
+      <p class="fine" style="margin:4px 0 10px">Match what her driver-ed course's practice log says.</p>
+      <div class="sups">${[60,120].map(v=>`<button class="btn${CAP()===v?' solid':''}" data-a="cap" data-v="${v}" aria-pressed="${CAP()===v}">${v/60} hour${v>60?'s':''} a day</button>`).join('')}</div></div>
     <div><div style="font-weight:600;font-size:15px">Colors</div>
       <div class="skins">${SKINS.map(k=>`<button class="sk" data-a="skin" data-v="${k[0]}" aria-label="${k[1]}" title="${k[1]}" aria-pressed="${(S.theme||'road')===k[0]}" style="background:linear-gradient(135deg,${k[2]} 60%,${k[3]} 60%)"></button>`).join('')}</div></div>
     <div><div style="font-weight:600;font-size:15px">Backup or new phone</div>
@@ -227,7 +231,7 @@ function render(){
   const sm=$('#sms');if(sm)sm.href=smsHref();
 }
 function smsHref(){return 'sms:&body='+encodeURIComponent(logText())}
-function tick(){if(!S.active)return;const c=$('#clock');if(c)c.textContent=clock();const T=totals(),m=((T.by[dkey(Date.now())]||{}).m||0)+liveMin();const a=$('#todayM'),b=$('#todayBar');if(a)a.textContent=dur(m);if(b)b.style.width=Math.min(100,m/DAY_CAP*100)+'%'}
+function tick(){if(!S.active)return;const c=$('#clock');if(c)c.textContent=clock();const T=totals(),m=((T.by[dkey(Date.now())]||{}).m||0)+liveMin();const a=$('#todayM'),b=$('#todayBar');if(a)a.textContent=dur(m);if(b)b.style.width=Math.min(100,m/CAP()*100)+'%'}
 
 /* ---------- toast ---------- */
 function say(msg,btn,fn){toast.innerHTML=`<span>${esc(msg)}</span>${btn?`<button>${esc(btn)}</button>`:''}`;toast.hidden=false;if(btn)toast.querySelector('button').onclick=()=>{toast.hidden=true;fn()};clearTimeout(toastT);toastT=setTimeout(()=>toast.hidden=true,5000)}
@@ -276,7 +280,7 @@ document.addEventListener('keydown',e=>{if(e.key==='Escape'&&!sheet.hidden)close
 function logText(){
   const T=totals(),hr=m=>(m/60).toFixed(2);
   const lines=[...S.drives].sort((a,b)=>a.start-b.start).map(d=>{const m=mins(d),n=nightMin(d);return [new Date(d.start).toLocaleDateString('en-US'),fmtT(d.start),hr(m-n),hr(n),d.sup||''].join(' | ')});
-  return ['Road Hours: Texas 30-hour behind-the-wheel log (for TDLR form DES150N)','Date | Time | Daytime hrs | Nighttime hrs | Supervising adult',...lines,'',`Counted: ${hr(T.all-T.night)} daytime + ${hr(T.night)} nighttime = ${hr(T.all)} of 30 hours (max 2 hours per day)`].join('\n');
+  return ['Road Hours: Texas 30-hour behind-the-wheel log (for TDLR form DES150N)','Date | Time | Daytime hrs | Nighttime hrs | Supervising adult',...lines,'',`Counted: ${hr(T.all-T.night)} daytime + ${hr(T.night)} nighttime = ${hr(T.all)} of 30 hours (max ${dur(CAP())} per day)`].join('\n');
 }
 
 
@@ -289,6 +293,7 @@ app.addEventListener('click',e=>{
       if(mins(d)<1){save();say('Under a minute, so nothing was logged')}
       else{S.drives.push(d);save();say('Logged '+dur(mins(d)),'Edit',()=>openSheet(S.drives.find(x=>x.id===d.id)))}}
   }
+  else if(a==='cap'){S.cap=Number(b.dataset.v);save()}
   else if(a==='skin'){S.theme=b.dataset.v;applySkin();save()}
   else if(a==='sup'){S.lastSup=b.dataset.v;if(S.active)S.active.sup=b.dataset.v;save()}
   else if(a==='edit'){const d=S.drives.find(x=>x.id===b.dataset.id);if(d)openSheet(d)}
