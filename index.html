@@ -17,6 +17,14 @@
 :root{color-scheme:light dark;--bg:light-dark(#ffffff,#0c1020);--ink:light-dark(#121726,#eef1fb);--mute:light-dark(#5a6275,#a3abc4);--line:light-dark(#e3e6ee,#252c46);--card:light-dark(#f3f5fa,#151b31);--blue:light-dark(#1747c9,#14318c);--blue2:light-dark(#0e2f92,#0a1d5c);--sun:#ffd23f;--moon:#c3d0ff;--red:#e5484d}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;min-width:0}
+:root[data-skin=pink]{--blue:#e0457b;--blue2:#a3245a}
+:root[data-skin=purple]{--blue:#7b3fe4;--blue2:#4c1fa3}
+:root[data-skin=teal]{--blue:#0e8f84;--blue2:#07605a}
+:root[data-skin=sunset]{--blue:#ef6a36;--blue2:#b0431a;--sun:#fff0b3}
+:root[data-skin=black]{--blue:#1f222b;--blue2:#000}
+.skins{display:flex;flex-wrap:wrap;gap:10px;margin-top:8px}
+.sk{width:52px;height:52px;border-radius:50%;border:3px solid var(--line);padding:0;position:relative}
+.sk[aria-pressed=true]{border-color:var(--ink);box-shadow:0 0 0 3px var(--bg) inset}
 body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.5 Overpass,system-ui,sans-serif;overflow-x:clip;font-variant-numeric:tabular-nums}
 .band{padding:clamp(22px,4vw,56px) max(5vw,16px)}
 .wrap{max-width:1100px;margin:0 auto}
@@ -115,6 +123,9 @@ let S=null;try{S=JSON.parse(localStorage.getItem('roadhours')||'null')}catch(e){
 S=Object.assign({},DEF,S||{});
 let storeOK=true;try{localStorage.setItem('rh_t','1');localStorage.removeItem('rh_t')}catch(e){storeOK=false}
 const sync=storeOK?'phone':'none';
+const SKINS=[['road','Highway','#1747c9','#ffd23f'],['pink','Pink','#e0457b','#ffd23f'],['purple','Purple','#7b3fe4','#ffd23f'],['teal','Teal','#0e8f84','#ffd23f'],['sunset','Sunset','#ef6a36','#fff0b3'],['black','Black','#1f222b','#ffd23f']];
+function applySkin(){const k=S.theme||'road';document.documentElement.dataset.skin=k;const m=document.querySelector('meta[name=theme-color]'),sk=SKINS.find(x=>x[0]===k);if(m&&sk)m.content=sk[2]}
+applySkin();
 let lastDel=null,toastT=null;
 
 const sheet=document.createElement('div');sheet.className='sheet';sheet.hidden=true;document.body.appendChild(sheet);
@@ -206,6 +217,8 @@ function render(){
     <div><div style="font-weight:600;font-size:15px">Who rides along</div>
       <div class="sups">${S.sups.map(s=>`<span class="tag">${esc(s)}<button data-a="rmsup" data-v="${esc(s)}" aria-label="Remove ${esc(s)}">×</button></span>`).join('')}</div>
       <form class="addsup" id="addsup"><input id="newsup" placeholder="Add a name" maxlength="30" aria-label="Add a name"><button class="btn">Add</button></form></div>
+    <div><div style="font-weight:600;font-size:15px">Colors</div>
+      <div class="skins">${SKINS.map(k=>`<button class="sk" data-a="skin" data-v="${k[0]}" aria-label="${k[1]}" title="${k[1]}" aria-pressed="${(S.theme||'road')===k[0]}" style="background:linear-gradient(135deg,${k[2]} 60%,${k[3]} 60%)"></button>`).join('')}</div></div>
     <div><div style="font-weight:600;font-size:15px">Backup or new phone</div>
       <p class="fine" style="margin:4px 0 10px">The log lives on this phone. Copy a backup now and then, and paste it here on a new phone to bring every drive along.</p>
       <div class="acts" style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn" data-a="backup">Copy backup</button><button class="btn" data-a="restore">Restore a backup</button></div></div>
@@ -274,6 +287,7 @@ app.addEventListener('click',e=>{
       if(mins(d)<1){save();say('Under a minute, so nothing was logged')}
       else{S.drives.push(d);save();say('Logged '+dur(mins(d)),'Edit',()=>openSheet(S.drives.find(x=>x.id===d.id)))}}
   }
+  else if(a==='skin'){S.theme=b.dataset.v;applySkin();save()}
   else if(a==='sup'){S.lastSup=b.dataset.v;if(S.active)S.active.sup=b.dataset.v;save()}
   else if(a==='edit'){const d=S.drives.find(x=>x.id===b.dataset.id);if(d)openSheet(d)}
   else if(a==='add')openSheet(null);
